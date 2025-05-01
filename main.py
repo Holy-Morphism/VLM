@@ -146,10 +146,11 @@ with col2:
         # Voice input - now the only option
         col2a, col2b = st.columns([3, 1])
         with col2a:
-            audio_bytes = st.audio_recorder(
-                sample_rate=44100, 
-                max_duration=10,
-                key="audio_recorder"
+            # Replace audio_recorder with audio_input
+            audio_bytes = st.audio_input(
+                label="Record your question",
+                format="audio/wav",
+                key="audio_input"
             )
         
         with col2b:
