@@ -1,29 +1,13 @@
 import streamlit as st
 import torch
-from peft import PeftModel
-from transformers import Blip2ForConditionalGeneration, AutoProcessor
+from transformers import BlipProcessor, Blip2ForConditionalGeneration
 from PIL import Image
-
-path_to_adapters = './blip2_finetuned'
 
 # Load model & processor once
 @st.cache_resource
 def load_model():
-    processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
-    
-    # Load base model without GPU optimizations
-    base_model = Blip2ForConditionalGeneration.from_pretrained(
-        "Salesforce/blip2-opt-2.7b",
-        device_map="cpu",
-        load_in_8bit=False
-    )
-    
-    # Load the fine-tuned adapters
-    model = PeftModel.from_pretrained(base_model, path_to_adapters)
-    
-    # Ensure model is on CPU
-    model = model.to("cpu")
-        
+    processor = BlipProcessor.from_pretrained("Salesforce/blip2-flan-t5-xl")
+    model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-flan-t5-xl")
     return processor, model
 
 processor, model = load_model()
@@ -36,8 +20,8 @@ def generate_caption(image: Image.Image, question: str) -> str:
         # Process inputs on CPU
         inputs = processor(image, question, return_tensors="pt")
         
-        # Generate caption with a timeout and parameter tuning
-        generated_ids = model.generate(
+        # Generate caption
+        out = model.generate(
             **inputs, 
             max_length=100,  # Increased for more detailed responses
             num_beams=3,     # Beam search for better quality
@@ -45,7 +29,7 @@ def generate_caption(image: Image.Image, question: str) -> str:
             do_sample=True
         )
         
-        answer = processor.batch_decode(generated_ids, skip_special_tokens=True)[0].strip()
+        answer = processor.decode(out[0], skip_special_tokens=True)
         
         # If answer is empty or too short, provide a fallback
         if not answer or len(answer) < 5:
