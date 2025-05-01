@@ -28,29 +28,23 @@ st.markdown("""
         margin-bottom: 0.5rem;
         color: #0D47A1;
     }
-    .user-message {
-        background-color: #E3F2FD;
-        padding: 10px;
-        border-radius: 10px;
-        margin: 5px 0;
-    }
-    .assistant-message {
-        background-color: #BBDEFB;
-        padding: 10px;
-        border-radius: 10px;
-        margin: 5px 0;
-    }
     .stButton button {
         background-color: #1976D2;
         color: white;
+    }
+    /* Add smooth scrolling to chat container */
+    .chat-container {
+        height: 400px;
+        overflow-y: auto;
+        padding-right: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
 
 
 # Initialize session state for conversation history
-if 'conversation' not in st.session_state:
-    st.session_state.conversation = []
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
 if 'image_uploaded' not in st.session_state:
     st.session_state.image_uploaded = False
 if 'current_image' not in st.session_state:
@@ -121,7 +115,7 @@ with col1:
             st.session_state.current_image = process_image(uploaded_image)
             st.session_state.image_uploaded = True
             st.session_state.last_uploaded = uploaded_image
-            st.session_state.conversation = []  # Reset conversation for new image
+            st.session_state.messages = []  # Reset conversation for new image
     
     # Display the current image
     if st.session_state.image_uploaded and st.session_state.current_image is not None:
@@ -138,16 +132,74 @@ with col1:
             st.session_state.current_image = process_image(camera_input)
             st.session_state.image_uploaded = True
             st.session_state.camera = camera_input
-            st.session_state.conversation = []  # Reset conversation for new image
+            st.session_state.messages = []  # Reset conversation for new image
 
 with col2:
     if st.session_state.image_uploaded and st.session_state.current_image is not None:
-        st.markdown("<h2 class='subheader'>🎤 Ask me about this image</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='subheader'>💬 Chat with the Assistant</h2>", unsafe_allow_html=True)
         
-        # Simplified voice input with automatic processing
+        # Chat history container
+        chat_container = st.container()
+        with chat_container:
+            # Display chat messages from history
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
+                    
+                    # Add a speak button for assistant messages
+                    if message["role"] == "assistant":
+                        if st.button("🔊", key=f"speak_{hash(message['content'])}"):
+                            audio_bytes = speak(
+                                message["content"], 
+                                rate=st.session_state.tts_settings["rate"],
+                                volume=st.session_state.tts_settings["volume"],
+                                voice_gender=st.session_state.tts_settings["voice_gender"]
+                            )
+                            if audio_bytes:
+                                st.session_state.audio_bytes = audio_bytes
+                                st.audio(audio_bytes, start_time=0)
+        
+        # Text input for questions
+        if text_question := st.chat_input("Ask a question about the image..."):
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": text_question})
+            
+            # Display user message in chat
+            with st.chat_message("user"):
+                st.markdown(text_question)
+            
+            # Generate and display assistant response
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    answer = answer_question(st.session_state.current_image, text_question)
+                st.markdown(answer)
+                
+                # Add assistant response to chat history
+                st.session_state.messages.append({"role": "assistant", "content": answer})
+                
+                # Generate speech for the response
+                if st.session_state.get('espeak_installed', False):
+                    try:
+                        st.session_state.audio_bytes = speak(
+                            answer, 
+                            rate=st.session_state.tts_settings["rate"],
+                            volume=st.session_state.tts_settings["volume"],
+                            voice_gender=st.session_state.tts_settings["voice_gender"]
+                        )
+                        
+                        # Auto-play the response
+                        if st.session_state.audio_bytes:
+                            audio_html = autoplay_audio(st.session_state.audio_bytes)
+                            if audio_html:
+                                st.markdown(audio_html, unsafe_allow_html=True)
+                    except Exception as e:
+                        st.error(f"Error in text-to-speech: {str(e)}")
+        
+        # Audio input section
+        st.markdown("<h3>🎤 Or speak your question</h3>", unsafe_allow_html=True)
         audio_bytes = st.audio_input("Speak your question", key="audio_input")
         
-        # Automatically process when audio is recorded
+        # Process audio input when provided
         if audio_bytes and ('last_audio' not in st.session_state or audio_bytes != st.session_state.last_audio):
             st.session_state.last_audio = audio_bytes
             
@@ -155,73 +207,52 @@ with col2:
                 question_text = transcribe_audio(audio_bytes)
                 
                 if question_text:
-                    # Add user message to conversation
-                    st.session_state.conversation.append(("user", question_text))
+                    # Add user message to chat history
+                    st.session_state.messages.append({"role": "user", "content": question_text})
                     
-                    # Generate answer
-                    answer = answer_question(st.session_state.current_image, question_text)
+                    # Display user message in chat
+                    with st.chat_message("user"):
+                        st.markdown(question_text)
                     
-                    # Add assistant response to conversation
-                    st.session_state.conversation.append(("assistant", answer))
-                    
-                    # Generate speech only if eSpeak is installed
-                    if st.session_state.get('espeak_installed', False):
-                        try:
-                            st.session_state.audio_bytes = speak(
-                                answer, 
-                                rate=st.session_state.tts_settings["rate"],
-                                volume=st.session_state.tts_settings["volume"],
-                                voice_gender=st.session_state.tts_settings["voice_gender"]
-                            )
-                            
-                            # Auto-play the response
-                            if st.session_state.audio_bytes:
-                                audio_html = autoplay_audio(st.session_state.audio_bytes)
-                                if audio_html:
-                                    st.markdown(audio_html, unsafe_allow_html=True)
-                        except Exception as e:
-                            st.error(f"Error in text-to-speech: {str(e)}")
-                            st.session_state.audio_bytes = None
-                    else:
-                        st.info("Text-to-speech is disabled. Install eSpeak to enable audio responses.")
+                    # Generate and display assistant response
+                    with st.chat_message("assistant"):
+                        with st.spinner("Thinking..."):
+                            answer = answer_question(st.session_state.current_image, question_text)
+                        st.markdown(answer)
+                        
+                        # Add assistant response to chat history
+                        st.session_state.messages.append({"role": "assistant", "content": answer})
+                        
+                        # Generate speech for the response
+                        if st.session_state.get('espeak_installed', False):
+                            try:
+                                st.session_state.audio_bytes = speak(
+                                    answer, 
+                                    rate=st.session_state.tts_settings["rate"],
+                                    volume=st.session_state.tts_settings["volume"],
+                                    voice_gender=st.session_state.tts_settings["voice_gender"]
+                                )
+                                
+                                # Auto-play the response
+                                if st.session_state.audio_bytes:
+                                    audio_html = autoplay_audio(st.session_state.audio_bytes)
+                                    if audio_html:
+                                        st.markdown(audio_html, unsafe_allow_html=True)
+                            except Exception as e:
+                                st.error(f"Error in text-to-speech: {str(e)}")
                 else:
                     st.error("I couldn't understand that. Could you try again?")
         
         # Reset conversation button
-        if st.button("Start New Conversation", key="reset_chat"):
-            st.session_state.conversation = []
+        if st.button("Clear Chat", key="reset_chat"):
+            st.session_state.messages = []
             st.session_state.audio_bytes = None
             st.session_state.last_audio = None
             st.experimental_rerun()
         
-        # Display audio player for last response (without autoplay HTML)
-        if st.session_state.audio_bytes:
+        # Display audio player for last response (if not autoplayed)
+        if st.session_state.audio_bytes and not st.session_state.get('espeak_installed', False):
             st.audio(st.session_state.audio_bytes, start_time=0)
-
-# Create a container for chat history at the bottom
-st.markdown("<h2 class='subheader'>📝 Conversation History</h2>", unsafe_allow_html=True)
-chat_container = st.container()
-
-with chat_container:
-    if not st.session_state.conversation:
-        st.info("Your conversation will appear here. Upload an image and speak your question to get started!")
-    
-    for i, (role, text) in enumerate(st.session_state.conversation):
-        if role == "user":
-            st.markdown(f"<div class='user-message'><b>You:</b> {text}</div>", unsafe_allow_html=True)
-        else:
-            st.markdown(f"<div class='assistant-message'><b>Assistant:</b> {text}</div>", unsafe_allow_html=True)
             
-            # Add a speak button for each assistant response
-            col_speak, col_copy = st.columns([1, 9])
-            with col_speak:
-                if st.button(f"🔊", key=f"speak_{i}"):
-                    audio_bytes = speak(
-                        text, 
-                        rate=st.session_state.tts_settings["rate"],
-                        volume=st.session_state.tts_settings["volume"],
-                        voice_gender=st.session_state.tts_settings["voice_gender"]
-                    )
-                    if audio_bytes:
-                        st.session_state.audio_bytes = audio_bytes
-                        st.experimental_rerun()
+    else:
+        st.info("Please upload an image or take a photo to start chatting!")
