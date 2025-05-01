@@ -8,6 +8,8 @@ from PIL import Image
 def load_model():
     processor = BlipProcessor.from_pretrained("Salesforce/blip2-flan-t5-xl")
     model = Blip2ForConditionalGeneration.from_pretrained("Salesforce/blip2-flan-t5-xl")
+    # Ensure model is in evaluation mode
+    model.eval()
     return processor, model
 
 processor, model = load_model()
@@ -19,18 +21,31 @@ def generate_caption(image, question: str) -> str:
             
         if not image.mode == "RGB":
             image = image.convert("RGB")
+        
+        # Ensure consistent image size to avoid shape mismatches
+        image = image.resize((512, 512))
             
-        # Process inputs on CPU
+        # Process inputs on CPU and handle device properly
         inputs = processor(image, question, return_tensors="pt")
         
-        # Generate caption
-        out = model.generate(
-            **inputs, 
-            max_length=100,  # Increased for more detailed responses
-            num_beams=3,     # Beam search for better quality
-            temperature=0.7, # Add some variability
-            do_sample=True
-        )
+        # Check if inputs contain valid data
+        if inputs['pixel_values'].shape[0] == 0 or inputs['input_ids'].shape[0] == 0:
+            return "Error: Failed to process the image or question. Please try again."
+        
+        # Generate caption with proper error handling
+        with torch.no_grad():  # Disable gradient calculation for inference
+            try:
+                out = model.generate(
+                    **inputs, 
+                    max_length=100,  # Increased for more detailed responses
+                    num_beams=3,     # Beam search for better quality
+                    temperature=0.7, # Add some variability
+                    do_sample=True
+                )
+            except RuntimeError as e:
+                if "shape mismatch" in str(e):
+                    return "Sorry, there was an issue processing this image. Try a different image or resize it."
+                raise e
         
         answer = processor.decode(out[0], skip_special_tokens=True)
         

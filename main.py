@@ -47,6 +47,37 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# Add this to the top of the file after imports
+def check_espeak_installed():
+    """Check if eSpeak is installed and provide installation instructions if not."""
+    if 'espeak_checked' not in st.session_state:
+        try:
+            # Simple test to see if TTS works
+            import pyttsx3
+            engine = pyttsx3.init()
+            engine.getProperty('voices')
+            st.session_state.espeak_checked = True
+            st.session_state.espeak_installed = True
+        except Exception as e:
+            if "espeak" in str(e).lower() or "do not have espeak" in str(e).lower():
+                st.session_state.espeak_checked = True
+                st.session_state.espeak_installed = False
+                st.warning("⚠️ Text-to-speech requires eSpeak to be installed. Audio responses will not work.")
+                st.info("""
+                To install eSpeak:
+                - Ubuntu/Debian: `sudo apt-get install espeak`
+                - Fedora: `sudo dnf install espeak`
+                - macOS: `brew install espeak`
+                - Windows: Download from https://github.com/espeak-ng/espeak-ng/releases
+                """)
+            else:
+                # Some other error, not related to espeak
+                st.session_state.espeak_checked = True
+                st.session_state.espeak_installed = True
+
+# Call this function early in the app
+check_espeak_installed()
+
 # Initialize session state for conversation history
 if 'conversation' not in st.session_state:
     st.session_state.conversation = []
@@ -163,19 +194,26 @@ with col2:
                     # Add assistant response to conversation
                     st.session_state.conversation.append(("assistant", answer))
                     
-                    # Generate speech
-                    st.session_state.audio_bytes = speak(
-                        answer, 
-                        rate=st.session_state.tts_settings["rate"],
-                        volume=st.session_state.tts_settings["volume"],
-                        voice_gender=st.session_state.tts_settings["voice_gender"]
-                    )
-                    
-                    # Auto-play the response
-                    if st.session_state.audio_bytes:
-                        audio_html = autoplay_audio(st.session_state.audio_bytes)
-                        if audio_html:
-                            st.markdown(audio_html, unsafe_allow_html=True)
+                    # Generate speech only if eSpeak is installed
+                    if st.session_state.get('espeak_installed', False):
+                        try:
+                            st.session_state.audio_bytes = speak(
+                                answer, 
+                                rate=st.session_state.tts_settings["rate"],
+                                volume=st.session_state.tts_settings["volume"],
+                                voice_gender=st.session_state.tts_settings["voice_gender"]
+                            )
+                            
+                            # Auto-play the response
+                            if st.session_state.audio_bytes:
+                                audio_html = autoplay_audio(st.session_state.audio_bytes)
+                                if audio_html:
+                                    st.markdown(audio_html, unsafe_allow_html=True)
+                        except Exception as e:
+                            st.error(f"Error in text-to-speech: {str(e)}")
+                            st.session_state.audio_bytes = None
+                    else:
+                        st.info("Text-to-speech is disabled. Install eSpeak to enable audio responses.")
                 else:
                     st.error("I couldn't understand that. Could you try again?")
         
