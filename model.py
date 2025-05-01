@@ -12,8 +12,11 @@ def load_model():
 
 processor, model = load_model()
 
-def generate_caption(image: Image.Image, question: str) -> str:
+def generate_caption(image, question: str) -> str:
     try:
+        if not isinstance(image, Image.Image):
+            raise TypeError("Expected PIL.Image.Image type for 'image' parameter")
+            
         if not image.mode == "RGB":
             image = image.convert("RGB")
             
@@ -39,3 +42,6 @@ def generate_caption(image: Image.Image, question: str) -> str:
     except Exception as e:
         st.error(f"Error generating caption: {str(e)}")
         return "Sorry, I encountered an error while processing your question."
+
+# Make functions available at module level
+__all__ = ['load_model', 'generate_caption']
