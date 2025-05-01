@@ -106,26 +106,6 @@ def answer_question(image, question):
 # Main application UI
 st.markdown("<h1 class='main-header'>🧠 Pici-Talk: Interactive Visual QA</h1>", unsafe_allow_html=True)
 
-# Create sidebar for settings
-with st.sidebar:
-    st.markdown("<h2 class='subheader'>⚙️ Settings</h2>", unsafe_allow_html=True)
-    
-    # TTS settings
-    st.markdown("<h3>Voice Settings</h3>", unsafe_allow_html=True)
-    st.session_state.tts_settings["rate"] = st.slider("Speech Rate", 100, 200, st.session_state.tts_settings["rate"])
-    st.session_state.tts_settings["volume"] = st.slider("Volume", 0.1, 1.0, st.session_state.tts_settings["volume"])
-    st.session_state.tts_settings["voice_gender"] = st.radio("Voice Gender", ["female", "male"])
-    
-    # About section
-    st.markdown("---")
-    st.markdown("<h3>About Pici-Talk</h3>", unsafe_allow_html=True)
-    st.markdown("""
-        Pici-Talk is an interactive visual question-answering system that allows you to:
-        - Upload an image
-        - Ask questions about it (by typing or speaking)
-        - Get AI-generated answers (as text and speech)
-    """)
-
 # Main content area - use columns for better layout
 col1, col2 = st.columns([1, 1])
 
@@ -144,7 +124,7 @@ with col1:
     
     # Display the current image
     if st.session_state.image_uploaded and st.session_state.current_image is not None:
-        st.image(st.session_state.current_image, caption="Current Image", use_column_width=True)
+        st.image(st.session_state.current_image, caption="Current Image", use_container_width=True)
     
     # Camera input option
     st.markdown("<h3>Or take a photo with your camera</h3>", unsafe_allow_html=True)
@@ -161,32 +141,9 @@ with col1:
 
 with col2:
     if st.session_state.image_uploaded and st.session_state.current_image is not None:
-        st.markdown("<h2 class='subheader'>💬 Ask a question about the image</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='subheader'>🎤 Speak your question about the image</h2>", unsafe_allow_html=True)
         
-        # Method 1: Text input
-        question_text = st.text_input("Type your question here:")
-        if st.button("Send Question", key="text_question"):
-            if question_text:
-                # Add user message to conversation
-                st.session_state.conversation.append(("user", question_text))
-                
-                # Generate answer
-                answer = answer_question(st.session_state.current_image, question_text)
-                
-                # Add assistant response to conversation
-                st.session_state.conversation.append(("assistant", answer))
-                
-                # Generate speech
-                st.session_state.audio_bytes = speak(
-                    answer, 
-                    rate=st.session_state.tts_settings["rate"],
-                    volume=st.session_state.tts_settings["volume"],
-                    voice_gender=st.session_state.tts_settings["voice_gender"]
-                )
-        
-        # Method 2: Audio recording
-        st.markdown("<h3>🎤 Or record your question</h3>", unsafe_allow_html=True)
-        
+        # Voice input - now the only option
         col2a, col2b = st.columns([3, 1])
         with col2a:
             audio_bytes = st.audio_recorder(
@@ -196,7 +153,7 @@ with col2:
             )
         
         with col2b:
-            if st.button("Process Audio", key="process_audio"):
+            if st.button("Process Voice", key="process_audio"):
                 if audio_bytes:
                     with st.spinner("Transcribing audio..."):
                         question_text = transcribe_audio(audio_bytes)
@@ -242,7 +199,7 @@ chat_container = st.container()
 
 with chat_container:
     if not st.session_state.conversation:
-        st.info("Your conversation will appear here. Upload an image and ask a question to get started!")
+        st.info("Your conversation will appear here. Upload an image and speak your question to get started!")
     
     for i, (role, text) in enumerate(st.session_state.conversation):
         if role == "user":
