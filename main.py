@@ -17,7 +17,7 @@ st.title("🧠 Pici-Talk")
 
 # Audio recording
 st.subheader("🎤 Record your question (up to 10 seconds)")
-audio_bytes = st.file_uploader("Upload your question as a .wav file", type=["wav"])
+audio_bytes = st.audio_recorder(sample_rate=44100, duration=10)
 
 if audio_bytes is not None:
     with st.spinner("Transcribing audio..."):
