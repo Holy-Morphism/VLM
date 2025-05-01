@@ -146,12 +146,8 @@ with col2:
         # Voice input - now the only option
         col2a, col2b = st.columns([3, 1])
         with col2a:
-            # Replace audio_recorder with audio_input
-            audio_bytes = st.audio_input(
-                label="Record your question",
-                format="audio/wav",
-                key="audio_input"
-            )
+            # Correct implementation of audio_input
+            audio_bytes = st.audio_input("Record your question")
         
         with col2b:
             if st.button("Process Voice", key="process_audio"):
