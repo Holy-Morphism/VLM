@@ -1,4 +1,3 @@
-!sudo apt-get install espeak
 import streamlit as st
 from PIL import Image
 import io
@@ -48,36 +47,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Add this to the top of the file after imports
-def check_espeak_installed():
-    """Check if eSpeak is installed and provide installation instructions if not."""
-    if 'espeak_checked' not in st.session_state:
-        try:
-            # Simple test to see if TTS works
-            import pyttsx3
-            engine = pyttsx3.init()
-            engine.getProperty('voices')
-            st.session_state.espeak_checked = True
-            st.session_state.espeak_installed = True
-        except Exception as e:
-            if "espeak" in str(e).lower() or "do not have espeak" in str(e).lower():
-                st.session_state.espeak_checked = True
-                st.session_state.espeak_installed = False
-                st.warning("⚠️ Text-to-speech requires eSpeak to be installed. Audio responses will not work.")
-                st.info("""
-                To install eSpeak:
-                - Ubuntu/Debian: `sudo apt-get install espeak`
-                - Fedora: `sudo dnf install espeak`
-                - macOS: `brew install espeak`
-                - Windows: Download from https://github.com/espeak-ng/espeak-ng/releases
-                """)
-            else:
-                # Some other error, not related to espeak
-                st.session_state.espeak_checked = True
-                st.session_state.espeak_installed = True
-
-# Call this function early in the app
-check_espeak_installed()
 
 # Initialize session state for conversation history
 if 'conversation' not in st.session_state:
