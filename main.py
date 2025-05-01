@@ -141,54 +141,54 @@ with col1:
 
 with col2:
     if st.session_state.image_uploaded and st.session_state.current_image is not None:
-        st.markdown("<h2 class='subheader'>🎤 Speak your question about the image</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 class='subheader'>🎤 Ask me about this image</h2>", unsafe_allow_html=True)
         
-        # Voice input - now the only option
-        col2a, col2b = st.columns([3, 1])
-        with col2a:
-            # Correct implementation of audio_input
-            audio_bytes = st.audio_input("Record your question")
+        # Simplified voice input with automatic processing
+        audio_bytes = st.audio_input("Speak your question", key="audio_input")
         
-        with col2b:
-            if st.button("Process Voice", key="process_audio"):
-                if audio_bytes:
-                    with st.spinner("Transcribing audio..."):
-                        question_text = transcribe_audio(audio_bytes)
-                        if question_text:
-                            st.success(f"Transcribed: '{question_text}'")
-                            
-                            # Add user message to conversation
-                            st.session_state.conversation.append(("user", question_text))
-                            
-                            # Generate answer
-                            answer = answer_question(st.session_state.current_image, question_text)
-                            
-                            # Add assistant response to conversation
-                            st.session_state.conversation.append(("assistant", answer))
-                            
-                            # Generate speech
-                            st.session_state.audio_bytes = speak(
-                                answer, 
-                                rate=st.session_state.tts_settings["rate"],
-                                volume=st.session_state.tts_settings["volume"],
-                                voice_gender=st.session_state.tts_settings["voice_gender"]
-                            )
-                        else:
-                            st.error("Could not transcribe audio. Please try again.")
+        # Automatically process when audio is recorded
+        if audio_bytes and ('last_audio' not in st.session_state or audio_bytes != st.session_state.last_audio):
+            st.session_state.last_audio = audio_bytes
+            
+            with st.spinner("Understanding your question..."):
+                question_text = transcribe_audio(audio_bytes)
+                
+                if question_text:
+                    # Add user message to conversation
+                    st.session_state.conversation.append(("user", question_text))
+                    
+                    # Generate answer
+                    answer = answer_question(st.session_state.current_image, question_text)
+                    
+                    # Add assistant response to conversation
+                    st.session_state.conversation.append(("assistant", answer))
+                    
+                    # Generate speech
+                    st.session_state.audio_bytes = speak(
+                        answer, 
+                        rate=st.session_state.tts_settings["rate"],
+                        volume=st.session_state.tts_settings["volume"],
+                        voice_gender=st.session_state.tts_settings["voice_gender"]
+                    )
+                    
+                    # Auto-play the response
+                    if st.session_state.audio_bytes:
+                        audio_html = autoplay_audio(st.session_state.audio_bytes)
+                        if audio_html:
+                            st.markdown(audio_html, unsafe_allow_html=True)
                 else:
-                    st.warning("No audio recorded. Please record audio first.")
+                    st.error("I couldn't understand that. Could you try again?")
         
-        # Controls for conversation
-        if st.button("Reset Conversation"):
+        # Reset conversation button
+        if st.button("Start New Conversation", key="reset_chat"):
             st.session_state.conversation = []
             st.session_state.audio_bytes = None
+            st.session_state.last_audio = None
+            st.experimental_rerun()
         
-        # Autoplay the generated audio if available
+        # Display audio player for last response (without autoplay HTML)
         if st.session_state.audio_bytes:
-            audio_html = autoplay_audio(st.session_state.audio_bytes)
-            if audio_html:
-                st.markdown(audio_html, unsafe_allow_html=True)
-            st.audio(st.session_state.audio_bytes)
+            st.audio(st.session_state.audio_bytes, start_time=0)
 
 # Create a container for chat history at the bottom
 st.markdown("<h2 class='subheader'>📝 Conversation History</h2>", unsafe_allow_html=True)
